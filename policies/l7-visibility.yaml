@@ -1,0 +1,22 @@
+# L7-aware ingress policy for Juice Shop — something k3s+flannel CANNOT do.
+# It restricts ingress to HTTP on :3000 and, by parsing L7, lets Hubble show the
+# actual method + path of every request (great for spotting the #4 attacks).
+# The empty `http: [{}]` rule allows all requests while enabling L7 visibility;
+# tighten it (methods/paths) to actively block once you've observed the traffic.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: juice-shop-l7-visibility
+  namespace: juice-shop
+spec:
+  endpointSelector:
+    matchLabels:
+      app: juice-shop
+  ingress:
+    - toPorts:
+        - ports:
+            - port: "3000"
+              protocol: TCP
+          rules:
+            http:
+              - {}

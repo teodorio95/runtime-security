@@ -1,0 +1,47 @@
+# Falco Helm values. Consumed by gitops/falco.yaml (ArgoCD multi-source).
+driver:
+  # CO-RE eBPF — no kernel headers needed. If it won't load on Docker Desktop,
+  # try kind: ebpf (legacy probe) or kmod.
+  kind: modern_ebpf
+
+# Emit alerts as JSON to stdout so `make falco-events` (kubectl logs) shows them.
+tty: true
+falco:
+  json_output: true
+  json_include_output_property: true
+
+# Our detections for the attacks documented in project #4 (offensive-writeups).
+customRules:
+  custom-rules.yaml: |-
+    - rule: Suspicious tool executed in container
+      desc: A shell / recon / exfil tool ran inside a container — likely post-exploitation
+      condition: >
+        spawned_process and container
+        and proc.name in (sh, bash, ash, dash, nc, ncat, netcat, nmap, sqlmap, wget, curl, socat)
+      output: >
+        Suspicious process in container (proc=%proc.name cmdline=%proc.cmdline
+        image=%container.image.repository pod=%k8s.pod.name ns=%k8s.ns.name)
+      priority: WARNING
+      tags: [container, shell, mitre_execution, T1059]
+
+    - rule: Package manager run in container
+      desc: A package manager ran in a container — an attacker installing tools at runtime
+      condition: >
+        spawned_process and container
+        and proc.name in (apk, apt, apt-get, dnf, yum, pip, pip3, npm, gem)
+      output: >
+        Package manager in container (proc=%proc.name cmdline=%proc.cmdline
+        image=%container.image.repository pod=%k8s.pod.name ns=%k8s.ns.name)
+      priority: WARNING
+      tags: [container, mitre_execution]
+
+    - rule: Sensitive credential file read in container
+      desc: Read of a high-value credential file inside a container
+      condition: >
+        open_read and container
+        and fd.name in (/etc/shadow, /root/.kube/config)
+      output: >
+        Sensitive file read (file=%fd.name proc=%proc.name
+        image=%container.image.repository pod=%k8s.pod.name ns=%k8s.ns.name)
+      priority: WARNING
+      tags: [filesystem, mitre_credential_access, T1552]

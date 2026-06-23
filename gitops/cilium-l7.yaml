@@ -1,0 +1,21 @@
+# Cilium L7 policies for the lab, deployed via ArgoCD.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cilium-l7-policies
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://gitlab.com/teodorio95/runtime-security.git
+    targetRevision: HEAD
+    path: policies
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: juice-shop
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
