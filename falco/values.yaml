@@ -2,7 +2,7 @@
 driver:
   # CO-RE eBPF — no kernel headers needed. If it won't load on Docker Desktop,
   # try kind: ebpf (legacy probe) or kmod.
-  kind: modern_ebpf
+  kind: ebpf
 
 # Emit alerts as JSON to stdout so `make falco-events` (kubectl logs) shows them.
 tty: true
