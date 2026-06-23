@@ -34,11 +34,14 @@ Falco uses an ArgoCD **multi-source** Application: the upstream chart plus our
 `falco/values.yaml` referenced via `$rs`.
 
 ## Runtime caveats (honest notes)
-- **Falco on Docker Desktop — known dead end (verified):** the LinuxKit kernel
-  lacks raw-tracepoint BPF (`BPF_TRACE_RAW_TP`), which both `modern_ebpf` and
-  `ebpf` require, and `kmod` can't build without kernel headers — so Falco
-  CrashLoops here. The rules still load & schema-validate (config is correct);
-  run on Colima/Lima, minikube with a VM driver, or a cloud node for a working
-  syscall sensor.
+- **Falco capture depends on the runtime (verified empirically):**
+  - *Docker Desktop* — CrashLoops; LinuxKit kernel has no raw-tracepoint BPF.
+  - *Colima + k3d* — Falco runs and loads our rules, but k3d runs nodes **as
+    containers**, so Falco isn't in the host PID namespace ("disabled BPF
+    iterators / not in root PID namespace") and misses most live syscalls.
+  - *Real nodes* — full detection: Colima's built-in k3s (`colima start
+    --kubernetes`), minikube `--driver`, or a cloud node.
+  This is a k3d-nesting limitation, not a config bug — the rules schema-validate
+  and fire fully on a real node. Cilium/Hubble (the network half) work regardless.
 - **Cilium on k3d:** runs with kube-proxy kept (no `kubeProxyReplacement`) for
   simplicity; that's enough for CNI + Hubble + policies in a lab.

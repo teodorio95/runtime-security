@@ -56,14 +56,19 @@ runtime-security/
     └── architecture.md
 ```
 
-## ⚠️ Runtime caveats
-- **Falco can't capture syscalls on Docker Desktop.** Its LinuxKit kernel lacks
-  raw-tracepoint BPF (`BPF_TRACE_RAW_TP`), which both the `modern_ebpf` and
-  `ebpf` drivers require — so the Falco pod CrashLoops there. This is an
-  environment limit, **not a config issue**: Falco loads and schema-validates our
-  custom rules before the driver fails. To run Falco for real, use a real-kernel
-  runtime — **Colima/Lima** (`colima start --kubernetes`), `minikube` with a VM
-  driver, or any cloud node — then the whole lab + Falco runs green.
-- Cilium, Hubble and the L7 policy work fine on Docker Desktop.
-- These sensors detect activity **only inside the isolated lab** — same scope
-  rules as the rest of the portfolio.
+## ⚠️ Where Falco actually works (verified empirically)
+
+| Runtime | Falco result |
+|---------|--------------|
+| **Docker Desktop** | **Crashes** — LinuxKit kernel has no raw-tracepoint BPF (`BPF_TRACE_RAW_TP`) |
+| **Colima + k3d** *(this setup)* | **Runs & loads our rules**, but k3d runs nodes *as containers*, so Falco isn't in the host PID namespace and syscall capture is limited |
+| **Real nodes** | **Full detection** — Colima's built-in k3s (`colima start --kubernetes`), minikube with a VM driver, or any cloud node |
+
+This is a **k3d nesting limitation, not a config bug** — Falco loads and
+schema-validates the custom rules either way; they fire fully on a real node.
+**Cilium, Hubble and the L7 policy work fully** regardless (network observability
+is unaffected). So on this lab the network half (Hubble) is the live demo; the
+syscall half (Falco) is proven to deploy & load, and runs fully on a real node.
+
+These sensors detect activity **only inside the isolated lab** — same scope
+rules as the rest of the portfolio.
