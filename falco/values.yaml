@@ -1,17 +1,16 @@
 # Falco Helm values. Consumed by gitops/falco.yaml (ArgoCD multi-source).
 driver:
   # CO-RE eBPF — the right default for a real-kernel node.
-  # WHERE FALCO ACTUALLY WORKS (verified):
-  #   * Docker Desktop  -> CRASHES: LinuxKit kernel has no raw-tracepoint BPF.
-  #   * Colima + k3d    -> RUNS and loads these rules, but syscall capture is
-  #     limited: k3d runs nodes AS CONTAINERS, so Falco isn't in the host PID
-  #     namespace ("disabled BPF iterators / not in root PID namespace") and
-  #     misses most live events.
-  #   * Real nodes      -> FULL detection: Colima's built-in k3s
-  #     (`colima start --kubernetes`), minikube with a VM driver, or any cloud
-  #     node — Falco is on the real kernel in the host PID namespace.
-  # The rules below are valid (Falco schema-validates them on load); they fire
-  # fully on a real node.
+  # WHERE FALCO ACTUALLY WORKS (tested empirically on an arm64 Mac):
+  #   * Docker Desktop          -> CRASHES (LinuxKit kernel: no raw-tracepoint BPF)
+  #   * Colima + k3d (this lab) -> RUNS, loads these rules, but 0 capture (no
+  #                                hostPID; k3d nodes are containers)
+  #   * minikube + vfkit (arm64)-> CRASHES (modern_ebpf probe error; kmod won't
+  #                                build/load on the ISO kernel)
+  #   * Real x86_64 Linux node  -> FULL detection (cloud/VM) — the supported setup
+  # Not a config bug: Falco schema-validates these rules everywhere; they fire on
+  # a real node. The chart sets no hostPID, and patching it is blocked by its own
+  # privileged:true + allowPrivilegeEscalation:false securityContext.
   kind: modern_ebpf
 
 # Emit alerts as JSON to stdout so `make falco-events` (kubectl logs) shows them.

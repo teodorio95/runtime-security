@@ -56,19 +56,29 @@ runtime-security/
     └── architecture.md
 ```
 
-## ⚠️ Where Falco actually works (verified empirically)
+## ⚠️ Where Falco actually works (what I tried, empirically)
 
-| Runtime | Falco result |
-|---------|--------------|
-| **Docker Desktop** | **Crashes** — LinuxKit kernel has no raw-tracepoint BPF (`BPF_TRACE_RAW_TP`) |
-| **Colima + k3d** *(this setup)* | **Runs & loads our rules**, but k3d runs nodes *as containers*, so Falco isn't in the host PID namespace and syscall capture is limited |
-| **Real nodes** | **Full detection** — Colima's built-in k3s (`colima start --kubernetes`), minikube with a VM driver, or any cloud node |
+Falco's syscall driver is finicky on a local Apple-Silicon (arm64) Mac. I tested
+every local option available and **none captured syscalls**:
 
-This is a **k3d nesting limitation, not a config bug** — Falco loads and
-schema-validates the custom rules either way; they fire fully on a real node.
-**Cilium, Hubble and the L7 policy work fully** regardless (network observability
-is unaffected). So on this lab the network half (Hubble) is the live demo; the
-syscall half (Falco) is proven to deploy & load, and runs fully on a real node.
+| Runtime tried | Result | Why |
+|---------------|--------|-----|
+| **Docker Desktop** | ❌ CrashLoop | LinuxKit kernel has no raw-tracepoint BPF (`BPF_TRACE_RAW_TP`) — both `modern_ebpf` and `ebpf` fail |
+| **Colima + k3d** *(this lab)* | ⚠️ Runs, **0 capture** | k3d runs nodes *as containers*; the Falco chart sets no `hostPID`, so Falco isn't in the host PID namespace (`disabled BPF iterators / not in root PID namespace`) and sees no live events |
+| **minikube + vfkit** (arm64 VM) | ❌ CrashLoop | `modern_ebpf`: `unable to set interesting syscall ... Bad file descriptor`; `kmod`: module won't build/load on the arm64 ISO kernel |
+| **Real x86_64 Linux node** (cloud / VM) | ✅ Full detection | normal host kernel + host PID namespace — the supported way to run Falco |
 
-These sensors detect activity **only inside the isolated lab** — same scope
-rules as the rest of the portfolio.
+**This is an environment limitation, not a config bug.** In every case Falco
+*loaded and schema-validated* our custom rules (`falco/values.yaml`); they fire
+fully on a real node. Drivers tried: `modern_ebpf`, `ebpf`, `kmod`.
+
+**Mentions / takeaways:**
+- The **network half of #5 works fully** here — Cilium + Hubble + the L7 policy.
+  Verified live: HTTP method/path/status in Hubble (`http-request GET / → 200`).
+  So the live runtime-detection demo on this Mac is **Hubble** (network); to
+  demo **Falco** (syscalls) live, use a real x86_64 Linux node.
+- The Falco chart never templates `hostPID`, and a `kubectl patch` to add it is
+  rejected by the chart's own `privileged:true` + `allowPrivilegeEscalation:false`
+  securityContext — so even on a real node you'd set both via values.
+- These sensors detect activity **only inside the isolated lab** — same scope
+  rules as the rest of the portfolio.
