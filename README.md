@@ -57,7 +57,13 @@ runtime-security/
 ```
 
 ## ⚠️ Runtime caveats
-- **Falco** uses `modern_ebpf`; on Docker Desktop, if the driver won't load,
-  switch `driver.kind` to `ebpf`/`kmod` in `falco/values.yaml`.
+- **Falco can't capture syscalls on Docker Desktop.** Its LinuxKit kernel lacks
+  raw-tracepoint BPF (`BPF_TRACE_RAW_TP`), which both the `modern_ebpf` and
+  `ebpf` drivers require — so the Falco pod CrashLoops there. This is an
+  environment limit, **not a config issue**: Falco loads and schema-validates our
+  custom rules before the driver fails. To run Falco for real, use a real-kernel
+  runtime — **Colima/Lima** (`colima start --kubernetes`), `minikube` with a VM
+  driver, or any cloud node — then the whole lab + Falco runs green.
+- Cilium, Hubble and the L7 policy work fine on Docker Desktop.
 - These sensors detect activity **only inside the isolated lab** — same scope
   rules as the rest of the portfolio.

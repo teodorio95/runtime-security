@@ -34,8 +34,11 @@ Falco uses an ArgoCD **multi-source** Application: the upstream chart plus our
 `falco/values.yaml` referenced via `$rs`.
 
 ## Runtime caveats (honest notes)
-- **Falco on Docker Desktop:** `modern_ebpf` needs a BTF-enabled kernel; the
-  Docker Desktop LinuxKit kernel usually has it, but if the driver won't load,
-  switch `driver.kind` to `ebpf` or `kmod` in `falco/values.yaml`.
+- **Falco on Docker Desktop — known dead end (verified):** the LinuxKit kernel
+  lacks raw-tracepoint BPF (`BPF_TRACE_RAW_TP`), which both `modern_ebpf` and
+  `ebpf` require, and `kmod` can't build without kernel headers — so Falco
+  CrashLoops here. The rules still load & schema-validate (config is correct);
+  run on Colima/Lima, minikube with a VM driver, or a cloud node for a working
+  syscall sensor.
 - **Cilium on k3d:** runs with kube-proxy kept (no `kubeProxyReplacement`) for
   simplicity; that's enough for CNI + Hubble + policies in a lab.

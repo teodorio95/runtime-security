@@ -1,8 +1,11 @@
 # Falco Helm values. Consumed by gitops/falco.yaml (ArgoCD multi-source).
 driver:
-  # CO-RE eBPF — no kernel headers needed. If it won't load on Docker Desktop,
-  # try kind: ebpf (legacy probe) or kmod.
-  kind: ebpf
+  # CO-RE eBPF — the right default for a real-kernel node.
+  # NOTE: Docker Desktop's LinuxKit kernel lacks raw-tracepoint BPF, so NEITHER
+  # modern_ebpf NOR ebpf can attach there (Falco will CrashLoop). Run the lab on
+  # a real-kernel runtime (Colima/Lima, minikube --driver, or a cloud node) for a
+  # working Falco. The rules below are valid (Falco schema-validates them on load).
+  kind: modern_ebpf
 
 # Emit alerts as JSON to stdout so `make falco-events` (kubectl logs) shows them.
 tty: true
