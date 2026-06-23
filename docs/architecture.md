@@ -34,14 +34,19 @@ Falco uses an ArgoCD **multi-source** Application: the upstream chart plus our
 `falco/values.yaml` referenced via `$rs`.
 
 ## Runtime caveats (honest notes)
-- **Falco capture depends on the runtime (verified empirically):**
-  - *Docker Desktop* — CrashLoops; LinuxKit kernel has no raw-tracepoint BPF.
-  - *Colima + k3d* — Falco runs and loads our rules, but k3d runs nodes **as
-    containers**, so Falco isn't in the host PID namespace ("disabled BPF
-    iterators / not in root PID namespace") and misses most live syscalls.
-  - *Real nodes* — full detection: Colima's built-in k3s (`colima start
-    --kubernetes`), minikube `--driver`, or a cloud node.
-  This is a k3d-nesting limitation, not a config bug — the rules schema-validate
-  and fire fully on a real node. Cilium/Hubble (the network half) work regardless.
+- **Falco capture — tested everywhere local, nothing worked on this arm64 Mac:**
+  - *Docker Desktop* — CrashLoops; LinuxKit kernel has no raw-tracepoint BPF
+    (`BPF_TRACE_RAW_TP`); `modern_ebpf` and `ebpf` both fail.
+  - *Colima + k3d (this lab)* — Falco runs and loads our rules but captures 0
+    events: k3d nodes are containers and the chart sets no `hostPID`, so Falco
+    isn't in the host PID namespace ("disabled BPF iterators / not in root PID ns").
+  - *minikube + vfkit (arm64 VM)* — CrashLoops: `modern_ebpf` errors on the probe
+    (`set interesting syscall ... Bad file descriptor`); `kmod` can't build/load
+    on the arm64 ISO kernel.
+  - *Real x86_64 Linux node (cloud/VM)* — full detection, the supported setup.
+  Environment limitation, **not a config bug** — Falco schema-validates the rules
+  in every case. The chart never templates `hostPID`, and patching it is blocked
+  by its own `privileged:true` + `allowPrivilegeEscalation:false` securityContext.
+  **Cilium/Hubble (the network half) work fully** — verified live L7 in Hubble.
 - **Cilium on k3d:** runs with kube-proxy kept (no `kubeProxyReplacement`) for
   simplicity; that's enough for CNI + Hubble + policies in a lab.
